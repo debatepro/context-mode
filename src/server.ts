@@ -1466,7 +1466,10 @@ export function buildBatchNodeOptionsPrefix(shellPath: string, preloadPath: stri
     return `set "NODE_OPTIONS=${option.replace(/"/g, '""')}" && `;
   }
 
-  return `NODE_OPTIONS=${quotePosixSingle(option)} `;
+  // `export` on its own line, not a `VAR=x cmd` prefix: POSIX grammar only
+  // allows assignment prefixes before *simple* commands, so a prefixed
+  // compound command (`for`, `while`, `if`, `case`, `{`) is a parse error.
+  return `export NODE_OPTIONS=${quotePosixSingle(option)}\n`;
 }
 
 /**

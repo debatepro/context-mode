@@ -3355,7 +3355,18 @@ describe("runBatchCommands edge cases", () => {
 
   test("buildBatchNodeOptionsPrefix formats POSIX shell assignment", () => {
     const prefix = buildBatchNodeOptionsPrefix("bash", "/tmp/cm fs'preload.js");
-    expect(prefix).toBe("NODE_OPTIONS='--require /tmp/cm fs'\\''preload.js' ");
+    expect(prefix).toBe("export NODE_OPTIONS='--require /tmp/cm fs'\\''preload.js'\n");
+  });
+
+  test("POSIX prefix yields a valid script for compound commands (for/while/if)", () => {
+    // A `VAR=x` prefix on the same line is legal only before simple commands;
+    // `NODE_OPTIONS=x for i in ...` is a shell parse error. The export-on-own-line
+    // form must leave the compound command as the sole content of its line.
+    const prefix = buildBatchNodeOptionsPrefix("bash", "/tmp/cm-fs-preload.js");
+    const script = `${prefix}for i in 1 2 3; do echo $i; done`;
+    const lines = script.split("\n");
+    expect(lines[0]).toBe("export NODE_OPTIONS='--require /tmp/cm-fs-preload.js'");
+    expect(lines[1]).toBe("for i in 1 2 3; do echo $i; done");
   });
 
   test("buildBatchNodeOptionsPrefix formats PowerShell assignment", () => {
