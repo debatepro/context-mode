@@ -44,20 +44,22 @@ ${includeCommands ? `
 </context_window_protection>`;
 }
 
+// One-liners: the SessionStart routing block already teaches the full
+// Routing/Boundaries model — tips only name the right tool at point of use.
 export function createReadGuidance(t) {
-  return '<context_guidance>\n  <tip>\n    Reading to Edit the file? Read is correct — Edit needs the exact bytes in your conversation to match against.\n    Reading to analyze, summarize, or extract from the file? Use ' + t("ctx_execute_file") + '(path, language, code) — the bytes stay in the sandbox and only what your code prints enters your conversation.\n  </tip>\n</context_guidance>';
+  return '<context_guidance>Reading to Edit is correct; reading to analyze/extract → ' + t("ctx_execute_file") + '(path, language, code) — bytes stay in the sandbox.</context_guidance>';
 }
 
 export function createGrepGuidance(t) {
-  return '<context_guidance>\n  <tip>\n    Grep results may be larger than you expect. When you intend to count, filter, or aggregate matches (not just spot-check one), run the search through ' + t("ctx_execute") + '(language: "javascript", code: "...") — the raw match list stays in the sandbox and only your derived answer enters your conversation. Use language: "shell" only when the code matches the host shell (PowerShell on Windows, POSIX shell on Unix).\n  </tip>\n</context_guidance>';
+  return '<context_guidance>Counting/filtering/aggregating matches (not spot-checking)? → ' + t("ctx_execute") + '(language: "javascript") — match list stays in the sandbox.</context_guidance>';
 }
 
 export function createBashGuidance(t) {
-  return '<context_guidance>\n  <tip>\n    When you intend to PROCESS the output (filter, count, parse, aggregate), use ' + t("ctx_batch_execute") + '(commands, queries) for multiple commands or ' + t("ctx_execute") + '(language: "javascript", code: "...") for one — the raw output stays in the sandbox and only what you print enters your conversation. Shell stays the right surface when you intend to OBSERVE a short fixed output or when you are mutating state (git, mkdir, rm, mv, navigation); if you use ' + t("ctx_execute") + '(language: "shell"), write syntax for the host shell.\n  </tip>\n</context_guidance>';
+  return '<context_guidance>Processing this output? → ' + t("ctx_batch_execute") + ' (multi) or ' + t("ctx_execute") + ' (one). Shell is right for short fixed output or state mutation.</context_guidance>';
 }
 
 export function createExternalMcpGuidance(t) {
-  return '<context_guidance>\n  <tip>\n    External MCP tools commonly return large payloads (channel history, file content, search results) that enter your conversation in full. When you intend to filter, count, or aggregate that data, pipe it through ' + t("ctx_execute") + '(language, code) — the raw payload stays in the sandbox and only the derived answer enters your conversation. For docs-style fetches you will want to query later, prefer ' + t("ctx_fetch_and_index") + '(url, source) then ' + t("ctx_search") + '(queries).\n  </tip>\n</context_guidance>';
+  return '<context_guidance>Large MCP payload ahead: filter/count/aggregate via ' + t("ctx_execute") + '(language, code); docs to re-query later → ' + t("ctx_fetch_and_index") + ' then ' + t("ctx_search") + '.</context_guidance>';
 }
 
 // ── Backward compat: static exports defaulting to claude-code ──
