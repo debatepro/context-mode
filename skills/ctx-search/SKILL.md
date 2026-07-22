@@ -1,9 +1,6 @@
 ---
 name: ctx-search
-description: |
-  Search context-mode's persistent FTS5 knowledge base for previously indexed
-  local project content, documentation, or session memory.
-  Trigger: /context-mode:ctx-search
+description: Search the persistent knowledge base (indexed content, docs, session memory). Trigger: /context-mode:ctx-search
 user-invocable: true
 ---
 

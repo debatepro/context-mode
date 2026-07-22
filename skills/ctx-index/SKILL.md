@@ -1,9 +1,6 @@
 ---
 name: ctx-index
-description: |
-  Index a local file or directory into context-mode's persistent FTS5 knowledge base
-  so future ctx_search calls can retrieve focused snippets without rereading raw files.
-  Trigger: /context-mode:ctx-index
+description: Index a local file/directory into the persistent knowledge base for ctx_search. Trigger: /context-mode:ctx-index
 user-invocable: true
 ---
 

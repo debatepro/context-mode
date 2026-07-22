@@ -1,9 +1,6 @@
 ---
 name: ctx-purge
-description: |
-  Purge the context-mode knowledge base. Permanently deletes all indexed content
-  and resets session stats. This is destructive and cannot be undone.
-  Trigger: /context-mode:ctx-purge
+description: Purge the knowledge base — destructive, irreversible. Trigger: /context-mode:ctx-purge
 user-invocable: true
 ---
 

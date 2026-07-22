@@ -1,10 +1,6 @@
 ---
 name: ctx-insight
-description: |
-  Open the context-mode Insight dashboard in your default browser.
-  Insight is the hosted analytics layer for AI-assisted engineering teams —
-  per-engineer productive rate, retry waste, blocker detection, role-narrowed views.
-  Trigger: /context-mode:ctx-insight
+description: Open the context-mode Insight analytics dashboard in the browser. Trigger: /context-mode:ctx-insight
 user-invocable: true
 ---
 

@@ -1,11 +1,6 @@
 ---
 name: ctx-stats
-description: |
-  Show how much context window context-mode saved this session.
-  Displays token consumption, context savings ratio, and per-tool breakdown.
-  Read-only — shows stats only, no reset capability.
-  To wipe the knowledge base entirely, use ctx_purge instead.
-  Trigger: /context-mode:ctx-stats
+description: Show context-window savings this session (read-only, per-tool breakdown). Trigger: /context-mode:ctx-stats
 user-invocable: true
 ---
 
