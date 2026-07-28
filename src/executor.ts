@@ -64,14 +64,38 @@ function quoteForPosixShell(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
-/** Pure helper — exported for unit testing. Restores parent PATH after shell startup. */
+function isZsh(shellPath: string | null | undefined): boolean {
+  const base = (shellPath ?? "").split(/[\\/]/).pop()?.toLowerCase() ?? "";
+  return base === "zsh";
+}
+
+/**
+ * Pure helper — exported for unit testing. Restores parent PATH after shell
+ * startup, and normalizes zsh to POSIX semantics.
+ *
+ * zsh is the macOS default $SHELL and resolveRuntimes() honors $SHELL, so most
+ * Mac users run sandbox scripts under zsh. Two zsh defaults break scripts
+ * written to POSIX rules, and both fail *silently*:
+ *   - unquoted `$VAR` is not word-split, so `grep -c x $FILES` receives a
+ *     single newline-joined filename, matches nothing, and complains only on
+ *     stderr — a false "no matches found" rather than an error
+ *   - a glob that matches nothing aborts the command (NOMATCH) instead of
+ *     being passed through literally
+ * SH_WORD_SPLIT + NO_NOMATCH restore the sh behavior every caller assumes,
+ * without switching zsh wholesale into sh emulation.
+ */
 export function buildShellScriptContent(
   code: string,
   inheritedPath: string | undefined,
   platform: NodeJS.Platform,
+  shellPath?: string | null,
 ): string {
-  if (platform === "win32" || !inheritedPath) return code;
-  return `export PATH=${quoteForPosixShell(inheritedPath)}\n${code}`;
+  if (platform === "win32") return code;
+  const prelude: string[] = [];
+  if (isZsh(shellPath)) prelude.push("setopt SH_WORD_SPLIT", "unsetopt NOMATCH");
+  if (inheritedPath) prelude.push(`export PATH=${quoteForPosixShell(inheritedPath)}`);
+  if (prelude.length === 0) return code;
+  return `${prelude.join("\n")}\n${code}`;
 }
 
 function isPowerShell(shellPath: string | null | undefined): boolean {
@@ -365,7 +389,7 @@ export class PolyglotExecutor {
         : rewritten;
       writeFileSync(
         fp,
-        buildShellScriptContent(shellCode, process.env.PATH, process.platform),
+        buildShellScriptContent(shellCode, process.env.PATH, process.platform, shellPath),
         { encoding: "utf-8", mode: 0o700 },
       );
     } else {

@@ -28,7 +28,7 @@ import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { describe, test, expect, beforeAll, afterAll, afterEach } from "vitest";
 
-import { classifyNonZeroExit } from "../../src/exit-classify.js";
+import { classifyNonZeroExit, appendStderr } from "../../src/exit-classify.js";
 import { PolyglotExecutor } from "../../src/executor.js";
 import { detectRuntimes } from "../../src/runtime.js";
 import { ContentStore } from "../../src/store.js";
@@ -241,6 +241,33 @@ describe("Non-zero Exit Code Classification", () => {
     expect(result.isError).toBe(true);
   });
 
+  // A soft fail is "not an error", but it is not "nothing happened" either.
+  // Dropping stderr here is what turned a broken search into a confident
+  // "no matches found": stdout carried the earlier echo output, so the run
+  // looked clean while grep's "No such file or directory" was discarded.
+  test("shell exit 1 soft-fail still surfaces stderr", () => {
+    const result = classifyNonZeroExit({
+      language: "shell",
+      exitCode: 1,
+      stdout: "skills/a/SKILL.md\nskills/b/SKILL.md",
+      stderr: "grep: skills/a/SKILL.md\nskills/b/SKILL.md: No such file or directory",
+    });
+    expect(result.isError).toBe(false);
+    expect(result.output).toContain("skills/a/SKILL.md");
+    expect(result.output).toContain("No such file or directory");
+  });
+
+  test("shell exit 1 soft-fail with clean stderr returns stdout verbatim", () => {
+    const result = classifyNonZeroExit({
+      language: "shell",
+      exitCode: 1,
+      stdout: "no matches",
+      stderr: "   \n ",
+    });
+    expect(result.isError).toBe(false);
+    expect(result.output).toBe("no matches");
+  });
+
   // ── Hard errors: exit code >= 2 ──
 
   test("shell exit 2 (grep bad regex) → always error", () => {
@@ -345,6 +372,38 @@ describe("Non-zero Exit Code Classification", () => {
     });
     expect(result.output).toMatch(/stdout:\s*\nS/);
     expect(result.output).toMatch(/stderr:\s*\nE/);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 1b. stderr surfacing on the SUCCESS path (appendStderr)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ctx_execute's exit-0 path built its response from result.stdout alone, so a
+// command that failed inside an otherwise-succeeding script left no trace at
+// all. ctx_batch_execute already merged both streams (combineExecOutput); this
+// brings ctx_execute in line.
+describe("appendStderr", () => {
+  test("no stderr → stdout is returned untouched", () => {
+    expect(appendStderr("out\n", "")).toBe("out\n");
+  });
+
+  test("whitespace-only stderr is not worth a section", () => {
+    expect(appendStderr("out", "  \n\t")).toBe("out");
+  });
+
+  test("stderr is appended under its own label", () => {
+    const merged = appendStderr("a.txt\nb.txt", "grep: no such file");
+    expect(merged).toContain("a.txt\nb.txt");
+    expect(merged).toMatch(/stderr:\s*\ngrep: no such file/);
+  });
+
+  test("stdout that already ends in a newline gains no blank-line pile-up", () => {
+    expect(appendStderr("out\n", "boom")).toBe("out\n\nstderr:\nboom");
+  });
+
+  test("empty stdout returns the stderr section alone", () => {
+    expect(appendStderr("", "boom")).toBe("stderr:\nboom");
   });
 });
 

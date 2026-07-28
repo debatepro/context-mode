@@ -215,6 +215,39 @@ describe("Runtime Detection", () => {
     assert.equal(script, "echo ok");
   });
 
+  // zsh is the macOS default $SHELL, and detectRuntimes() honors $SHELL, so the
+  // sandbox runs user scripts under zsh on most Macs. zsh does not word-split
+  // unquoted parameter expansions and aborts a command whose glob matched
+  // nothing — both POSIX divergences that turn a working script into a SILENT
+  // wrong answer (`grep -c x $FILES` sees one newline-joined filename, matches
+  // nothing, and its error goes to stderr, which ctx_execute drops).
+  test("buildShellScriptContent restores POSIX semantics under zsh", () => {
+    const script = buildShellScriptContent("echo ok", "/usr/bin", "darwin", "/bin/zsh");
+    assert.equal(
+      script,
+      "setopt SH_WORD_SPLIT\nunsetopt NOMATCH\nexport PATH='/usr/bin'\necho ok",
+    );
+  });
+
+  test("buildShellScriptContent emits the zsh prelude even with no inherited PATH", () => {
+    const script = buildShellScriptContent("echo ok", undefined, "darwin", "/usr/local/bin/zsh");
+    assert.equal(script, "setopt SH_WORD_SPLIT\nunsetopt NOMATCH\necho ok");
+  });
+
+  test("buildShellScriptContent leaves bash and sh untouched", () => {
+    // Guards the fix against over-reach: only zsh needs the prelude, and a
+    // stray `setopt` would be a hard parse error under bash/sh.
+    for (const shell of ["/bin/bash", "/bin/sh", "/opt/homebrew/bin/bash", null]) {
+      const script = buildShellScriptContent("echo ok", "/usr/bin", "linux", shell);
+      assert.equal(script, "export PATH='/usr/bin'\necho ok", `shell=${shell}`);
+    }
+  });
+
+  test("buildShellScriptContent skips the zsh prelude on Windows", () => {
+    const script = buildShellScriptContent("echo ok", "C:\\bin", "win32", "C:\\zsh.exe");
+    assert.equal(script, "echo ok");
+  });
+
   test("buildPowerShellScriptContent prefixes UTF-8 encoding setup", () => {
     const script = buildPowerShellScriptContent('Write-Output "ok"');
     // Windows PowerShell 5.1 only reliably detects a script as UTF-8 when the
@@ -2080,5 +2113,62 @@ describe("killSiblingMcpServers (#559)", () => {
     });
     // Process was already dead — counts as 0 since we never observed it alive.
     assert.equal(report.totalKilled, 0);
+  });
+});
+
+// The real regression seam: drive the executor end-to-end with shell pinned to
+// zsh and assert the POSIX behavior callers actually depend on. The
+// buildShellScriptContent unit tests above only prove the prelude text; these
+// prove it fixes the bug.
+const zshPath = ["/bin/zsh", "/usr/bin/zsh", "/opt/homebrew/bin/zsh"].find(p => existsSync(p));
+const describeZsh = process.platform !== "win32" && zshPath ? describe : describe.skip;
+
+describeZsh("shell sandbox under zsh — POSIX word splitting", () => {
+  const dir = join(tmpdir(), `ctx-zsh-wordsplit-${process.pid}`);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "a.txt"), "hello\n");
+  writeFileSync(join(dir, "b.txt"), "hello\n");
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+  const zshExecutor = new PolyglotExecutor({
+    runtimes: { ...detectRuntimes(), shell: zshPath as string },
+  });
+
+  test("an unquoted $VAR of filenames reaches grep as separate arguments", async () => {
+    const result = await zshExecutor.execute({
+      language: "shell",
+      code: "F=$(ls a.txt b.txt)\ngrep -c hello $F",
+      timeout: 15_000,
+      cwd: dir,
+    });
+
+    // Pre-fix zsh passes "a.txt\nb.txt" as ONE argument: grep reports
+    // "No such file or directory" on stderr and prints nothing on stdout.
+    assert.equal(result.stdout.trim(), "a.txt:1\nb.txt:1", `stderr: ${result.stderr}`);
+    assert.equal(result.exitCode, 0);
+  });
+
+  test("an unquoted $VAR iterates once per word, not once per string", async () => {
+    // The fully silent variant — nothing on either stream, just a wrong count.
+    const result = await zshExecutor.execute({
+      language: "shell",
+      code: 'L=$(printf "p\\nq\\n")\nn=0\nfor x in $L; do n=$((n+1)); done\necho "iters=$n"',
+      timeout: 15_000,
+      cwd: dir,
+    });
+
+    assert.equal(result.stdout.trim(), "iters=2", `stderr: ${result.stderr}`);
+  });
+
+  test("a glob that matches nothing passes through instead of aborting", async () => {
+    const result = await zshExecutor.execute({
+      language: "shell",
+      code: 'for g in nope*.zzz; do echo "iter=$g"; done',
+      timeout: 15_000,
+      cwd: dir,
+    });
+
+    // Pre-fix zsh raises "no matches found" and never enters the loop body.
+    assert.equal(result.stdout.trim(), "iter=nope*.zzz", `stderr: ${result.stderr}`);
   });
 });

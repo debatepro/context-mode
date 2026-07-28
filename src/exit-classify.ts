@@ -27,7 +27,24 @@ export function classifyNonZeroExit(params: {
   return {
     isError: !isSoftFail,
     output: isSoftFail
-      ? stdout
+      ? appendStderr(stdout, stderr)
       : `Exit code: ${exitCode}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`,
   };
+}
+
+/**
+ * Merge a run's stderr into the text the caller sees.
+ *
+ * Both the soft-fail branch above and ctx_execute's exit-0 path used to return
+ * stdout alone, so a command that failed inside an otherwise-succeeding script
+ * vanished without a trace — the caller read an empty result as a real answer.
+ * Kept as a labeled trailing section (rather than interleaved) so output that
+ * downstream code parses stays parseable, and so scripts that write ordinary
+ * progress chatter to stderr don't corrupt their own stdout.
+ */
+export function appendStderr(stdout: string, stderr: string): string {
+  if (!stderr.trim()) return stdout;
+  const section = `stderr:\n${stderr}`;
+  if (!stdout) return section;
+  return `${stdout}${stdout.endsWith("\n") ? "" : "\n"}\n${section}`;
 }

@@ -29,7 +29,7 @@ import {
   getAvailableLanguages,
   hasBunRuntime,
 } from "./runtime.js";
-import { classifyNonZeroExit } from "./exit-classify.js";
+import { classifyNonZeroExit, appendStderr } from "./exit-classify.js";
 import { startLifecycleGuard, noteMcpActivity, noteRequestStart, noteRequestEnd, attachMcpActivityTap } from "./lifecycle.js";
 import { charSafePrefix } from "./truncate.js";
 import {
@@ -1910,7 +1910,10 @@ __cm_main().catch(e=>{console.error(e);process.exitCode=1});${background ? '\nse
         });
       }
 
-      const stdout = result.stdout || "(no output)";
+      // Exit 0 does not mean every command inside the script succeeded — a
+      // failing command mid-script leaves stderr as the only evidence. Surface
+      // it (ctx_batch_execute already does, via combineExecOutput).
+      const stdout = appendStderr(result.stdout || "", result.stderr || "") || "(no output)";
 
       // Intent-driven search: if intent provided and output is large enough
       if (intent && intent.trim().length > 0 && Buffer.byteLength(stdout) > INTENT_SEARCH_THRESHOLD) {
@@ -2190,7 +2193,10 @@ EXAMPLE: ctx_execute_file(path: "data.csv", language: "javascript", code: "const
         });
       }
 
-      const stdout = result.stdout || "(no output)";
+      // Exit 0 does not mean every command inside the script succeeded — a
+      // failing command mid-script leaves stderr as the only evidence. Surface
+      // it (ctx_batch_execute already does, via combineExecOutput).
+      const stdout = appendStderr(result.stdout || "", result.stderr || "") || "(no output)";
 
       if (intent && intent.trim().length > 0 && Buffer.byteLength(stdout) > INTENT_SEARCH_THRESHOLD) {
         trackIndexed(Buffer.byteLength(stdout));
