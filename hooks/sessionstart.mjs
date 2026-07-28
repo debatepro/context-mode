@@ -42,7 +42,48 @@ await runHook(async () => {
   const { createSessionLoaders, attributeAndInsertEvents } = await import("./session-loaders.mjs");
   const { join, dirname } = await import("node:path");
   const { fileURLToPath } = await import("node:url");
-  const { readFileSync, unlinkSync, readdirSync, rmSync, lstatSync, realpathSync, symlinkSync } = await import("node:fs");
+  const { readFileSync, unlinkSync, readdirSync, rmSync, lstatSync, realpathSync, symlinkSync, appendFileSync, mkdirSync } = await import("node:fs");
+
+  /**
+   * The plugin-cache breadcrumb sweep is best-effort by design and must never
+   * block session start, so every failure inside it is swallowed. That left it
+   * unable to report its own breakage: a Node-version-specific `rmSync` bug
+   * silently disabled the sweep for a whole release cycle with an empty stderr.
+   * Failures now land in the same debug log the outer handler already uses.
+   */
+  /**
+   * Remove one plugin-cache entry for the breadcrumb sweep below.
+   *
+   * Breadcrumbs are symlinks (junctions on Windows), and `rmSync` is the wrong
+   * tool for one: Node 24.9-24.12 stats THROUGH the link, so a DANGLING
+   * breadcrumb reads as ENOENT and `force: true` swallows it — no throw, no
+   * removal. The stale link survives, the sweep's `symlinkSync` then fails
+   * EEXIST, and every session pinned to the dead version stays stranded, which
+   * is the #807 failure the breadcrumb exists to prevent. `unlinkSync` acts on
+   * the link itself: version-proof, and it removes junctions too. Real
+   * directories still need the recursive `rmSync`. This mirrors
+   * healCacheMidSession (server.ts) and postinstall.mjs, which never had the bug.
+   */
+  const removeCacheEntry = (target, isSymlink) => {
+    if (isSymlink) {
+      try {
+        unlinkSync(target);
+        return;
+      } catch { /* fall through to the recursive remove */ }
+    }
+    rmSync(target, { recursive: true, force: true });
+  };
+
+  const logSweepDiagnostic = async (message) => {
+    try {
+      const logDir = join(resolveConfigDir(), "context-mode");
+      mkdirSync(logDir, { recursive: true });
+      appendFileSync(
+        join(logDir, "sessionstart-debug.log"),
+        `[${new Date().toISOString()}] cache breadcrumb ${message}\n`,
+      );
+    } catch { /* ignore logging failure */ }
+  };
 
   const detectedPlatform = detectPlatformFromEnv();
   const toolNamer = createToolNamer(detectedPlatform);
@@ -396,13 +437,16 @@ await runHook(async () => {
             const myDir = pluginRoot.replace(cacheParent, "").replace(/[\\/]/g, "");
             const ONE_HOUR = 3600000;
             const now = Date.now();
+            // Best-effort failures, flushed to the debug log after the loop.
+            const sweepFailures = [];
             for (const d of readdirSync(cacheParent)) {
               if (d === myDir) continue;
               const oldDir = join(cacheParent, d);
               try {
                 const st = lstatSync(oldDir);
+                const isSymlink = st.isSymbolicLink();
                 let danglingBreadcrumb = false;
-                if (st.isSymbolicLink()) {
+                if (isSymlink) {
                   try {
                     realpathSync(oldDir);
                   } catch {
@@ -410,7 +454,7 @@ await runHook(async () => {
                   }
                 }
                 if (danglingBreadcrumb || now - st.mtimeMs > ONE_HOUR) {
-                  rmSync(oldDir, { recursive: true, force: true });
+                  removeCacheEntry(oldDir, isSymlink);
                   // Leave a breadcrumb symlink (junction on Windows) in the
                   // removed version's place so sessions that loaded hooks
                   // from it before an auto-update keep resolving their
@@ -425,21 +469,30 @@ await runHook(async () => {
                   // and postinstall.mjs.
                   try {
                     symlinkSync(pluginRoot, oldDir, process.platform === "win32" ? "junction" : undefined);
-                  } catch { /* best effort — plain delete is the pre-#814 behaviour */ }
+                  } catch (e) {
+                    // Best effort — plain delete is the pre-#814 behaviour.
+                    sweepFailures.push(`relink ${d}: ${e?.code || e?.message || e}`);
+                  }
                 }
               } catch {
                 // On Windows, a dangling junction can fail before we can read
                 // its own mtime. Treat that as a stale breadcrumb and try to
                 // repoint it at the live root; failures remain best-effort.
                 try {
-                  rmSync(oldDir, { recursive: true, force: true });
+                  removeCacheEntry(oldDir, true);
                   symlinkSync(pluginRoot, oldDir, process.platform === "win32" ? "junction" : undefined);
-                } catch { /* skip */ }
+                } catch (e) {
+                  sweepFailures.push(`repoint ${d}: ${e?.code || e?.message || e}`);
+                }
               }
             }
+            if (sweepFailures.length) await logSweepDiagnostic(`sweep: ${sweepFailures.join("; ")}`);
           }
         }
-      } catch { /* best effort — never block session start */ }
+      } catch (err) {
+        // Never block session start — but leave a trace, unlike before.
+        await logSweepDiagnostic(`sweep aborted: ${err?.message || err}`);
+      }
     }
     // "clear" — no reset needed; ctx_purge is the only wipe mechanism
   } catch (err) {
