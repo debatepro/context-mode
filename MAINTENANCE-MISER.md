@@ -55,3 +55,19 @@ and only when upstream's version is newer. Consequences:
 `miser-acceptance.sh` — checks: sessionstart exits 0, rendered block ≤ 2400 B,
 valid JSON, block present, full tool prefix documented, pretooluse exits 0,
 all routing-block exports importable. Any FAIL blocks the push.
+
+## Token-budget watch
+
+Re-run /usage-audit after every Claude Code version bump. The 2026-07 bloat
+(27.9k total) was harness-side — system tools grew 8.7k→15.9k across two
+weeks — not user config. Baseline after trims (2026-07-22): 19.3k total
+(system tools 8.2k with disableWorkflows:true + ReportFindings denied).
+
+## CBM auto-index hook (2026-07-22)
+
+`~/.claude/hooks/cbm-auto-index` (SessionStart startup+resume) refreshes the
+current repo's CBM graph in the background; log at
+$CBM_CACHE_DIR/auto-index.log. Repos >10k files stay manual (terminal CLI).
+Follow-up filed here: the CBM warm server caches project graphs in RAM at
+first query — a server-side DB-mtime invalidation would close mid-session
+staleness; revisit on next CBM binary update.
