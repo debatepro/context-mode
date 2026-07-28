@@ -908,7 +908,9 @@ describe("ContextModePlugin", () => {
       // routing block spliced at index 1
       const joined = out.system.join("\n");
       expect(joined).toContain("<context_window_protection>");
-      expect(joined).toContain("<priority_instructions>");
+      // 2026-07 token trim flattened <priority_instructions> — the Routing:
+      // section is the surviving structural marker inside the envelope.
+      expect(joined).toContain("Routing:");
       // platform-specific tool name proves createToolNamer wired correctly
       expect(joined).toContain("context-mode_ctx_search");
     });

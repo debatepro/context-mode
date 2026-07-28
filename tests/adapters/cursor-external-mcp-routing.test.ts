@@ -71,7 +71,8 @@ describe("CursorAdapter — external MCP routing (#529)", () => {
     const result = routePreToolUse("MCP:slack_post_message", {});
     expect(result).not.toBeNull();
     expect(result!.action).toBe("context");
-    expect(result!.additionalContext).toContain("External MCP tools");
+    // Trimmed external-MCP guidance opens with "Large MCP payload ahead".
+    expect(result!.additionalContext).toContain("Large MCP payload");
   });
 
   it("isExternalMcpTool routing.mjs does NOT classify MCP:ctx_* as external", async () => {
@@ -86,7 +87,7 @@ describe("CursorAdapter — external MCP routing (#529)", () => {
       { language: "javascript", code: "1+1" },
     );
     if (result !== null) {
-      expect(result.additionalContext ?? "").not.toContain("External MCP tools");
+      expect(result.additionalContext ?? "").not.toContain("Large MCP payload");
     }
   });
 });

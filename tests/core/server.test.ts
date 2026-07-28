@@ -1991,7 +1991,11 @@ describe("Hook Injection", () => {
     });
     const parsed = JSON.parse(output);
     const prompt = parsed.hookSpecificOutput.updatedInput.prompt;
-    assert.ok(prompt.includes("<output_constraints>"), "Should inject output_constraints");
+    // The 2026-07 token trim flattened the inner XML containers into plain
+    // labelled sections: <tool_selection_hierarchy> → "Routing:",
+    // <when_not_to_use>/<output_constraints> → "Boundaries:" (which carries
+    // the artifact policy). Semantic intent unchanged, ~half the tokens.
+    assert.ok(prompt.includes("Write artifacts"), "Should inject the output-constraints policy");
     // Pillar 4 (caveman/Output Compression) retired in #482. Routing block
     // must NOT push a prose-style directive — assert the negative.
     assert.ok(
@@ -2003,17 +2007,17 @@ describe("Hook Injection", () => {
       "Routing block must not contain communication_style block",
     );
     assert.ok(
-      prompt.includes("<tool_selection_hierarchy>"),
-      "Should inject tool_selection_hierarchy",
+      prompt.includes("Routing:"),
+      "Should inject the Routing: hierarchy (replaced <tool_selection_hierarchy> in the token trim)",
     );
     // PR #683 follow-up (ADR-0002 + ADR-0003 hook prompt-surface contract):
-    // <forbidden_actions> renamed to <when_not_to_use> to drop the
-    // Constitutional-AI-trigger container name (rubric #9). Semantic intent
-    // — "Bash, Read, WebFetch, ctx_execute have wrong-tool selection cues
-    // injected into every session" — is preserved and asserted here.
+    // <forbidden_actions> became <when_not_to_use> (rubric #9), which the
+    // token trim then folded into the "Boundaries:" section. The semantic
+    // intent — wrong-tool selection cues for Bash/Read/WebFetch/ctx_execute —
+    // is preserved and asserted here.
     assert.ok(
-      prompt.includes("<when_not_to_use>"),
-      "Should inject when_not_to_use (the affirmative successor to <forbidden_actions>, ADR-0002)",
+      prompt.includes("Boundaries:"),
+      "Should inject the Boundaries: section (successor to <when_not_to_use>, ADR-0002 + token trim)",
     );
   });
 

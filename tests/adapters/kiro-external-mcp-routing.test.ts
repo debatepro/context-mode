@@ -70,7 +70,8 @@ describe("KiroAdapter — external MCP routing (#529)", () => {
     const result = routePreToolUse("@slack/post_message", {});
     expect(result).not.toBeNull();
     expect(result!.action).toBe("context");
-    expect(result!.additionalContext).toContain("External MCP tools");
+    // Trimmed external-MCP guidance opens with "Large MCP payload ahead".
+    expect(result!.additionalContext).toContain("Large MCP payload");
   });
 
   it("isExternalMcpTool routing.mjs does NOT classify @context-mode/ctx_* as external", async () => {
@@ -84,7 +85,7 @@ describe("KiroAdapter — external MCP routing (#529)", () => {
     );
     // ctx_execute branch handles this — must NOT fire external-MCP guidance.
     if (result !== null) {
-      expect(result.additionalContext ?? "").not.toContain("External MCP tools");
+      expect(result.additionalContext ?? "").not.toContain("Large MCP payload");
     }
   });
 });

@@ -597,7 +597,8 @@ describe("OpenClawPlugin", () => {
       expect(result?.appendSystemContext).toBeDefined();
       // Hallmark of createRoutingBlock(toolNamer) — see hooks/routing-block.mjs:19.
       expect(result.appendSystemContext).toContain("<context_window_protection>");
-      expect(result.appendSystemContext).toContain("<tool_selection_hierarchy>");
+      // 2026-07 token trim: <tool_selection_hierarchy> → "Routing:" section.
+      expect(result.appendSystemContext).toContain("Routing:");
       // OpenClaw tool-namer leaves bare ctx_* names unprefixed (no MCP wrap).
       expect(result.appendSystemContext).toContain("ctx_batch_execute");
     });

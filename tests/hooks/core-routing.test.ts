@@ -546,8 +546,10 @@ describe("routePreToolUse", () => {
       expect(result).not.toBeNull();
       expect(result!.action).toBe("modify");
       const prompt = (result!.updatedInput as Record<string, string>).prompt;
-      expect(prompt).not.toContain("<ctx_commands>");
-      expect(prompt).toContain("<tool_selection_hierarchy>");
+      // 2026-07 token trim: <ctx_commands> flattened to a "Commands:" section,
+      // <tool_selection_hierarchy> to "Routing:". Same include/omit semantics.
+      expect(prompt).not.toContain("Commands:");
+      expect(prompt).toContain("Routing:");
     });
 
     it("injects Claude Code Agent routing and ToolSearch bootstrap by default", () => {
@@ -560,25 +562,26 @@ describe("routePreToolUse", () => {
       const prompt = (result!.updatedInput as Record<string, string>).prompt;
       expect(prompt).toContain("<context_window_protection>");
       expect(prompt).toContain("ToolSearch");
-      expect(prompt).not.toContain("<ctx_commands>");
+      expect(prompt).not.toContain("Commands:");
     });
 
-    it("ROUTING_BLOCK constant includes ctx_commands for main session", () => {
-      expect(ROUTING_BLOCK).toContain("<ctx_commands>");
+    it("ROUTING_BLOCK constant includes the Commands section for main session", () => {
+      expect(ROUTING_BLOCK).toContain("Commands:");
       expect(ROUTING_BLOCK).toContain("ctx stats");
     });
 
     it("createRoutingBlock with includeCommands: false omits section", () => {
       const t = (name: string) => `mcp__test__${name}`;
       const block = createRoutingBlock(t, { includeCommands: false });
-      expect(block).not.toContain("<ctx_commands>");
-      expect(block).toContain("<tool_selection_hierarchy>");
+      expect(block).not.toContain("Commands:");
+      expect(block).not.toContain("ctx stats");
+      expect(block).toContain("Routing:");
     });
 
-    it("createRoutingBlock default includes ctx_commands", () => {
+    it("createRoutingBlock default includes the Commands section", () => {
       const t = (name: string) => `mcp__test__${name}`;
       const block = createRoutingBlock(t);
-      expect(block).toContain("<ctx_commands>");
+      expect(block).toContain("Commands:");
     });
   });
 
@@ -783,31 +786,32 @@ describe("routePreToolUse", () => {
     //   - file writes go through the native Write/Edit tool
     //   - ctx_execute / ctx_execute_file / Bash subprocesses do not persist edits
     //   - artifacts get written to files (path + 1-line description returned)
-    it("file_writing_policy points file writes at native Write/Edit tools", () => {
-      expect(ROUTING_BLOCK).toContain("<file_writing_policy>");
-      expect(ROUTING_BLOCK).toContain("File writes use the native Write or Edit tool");
+    // The 2026-07 token trim then flattened these policies out of their XML
+    // containers into the "Boundaries:" section — same semantic intents, new
+    // surface wording, asserted below against the trimmed block.
+    it("file-writes boundary points file writes at native Write/Edit tools", () => {
+      expect(ROUTING_BLOCK).toContain("File writes:");
+      expect(ROUTING_BLOCK).toContain("native Write/Edit ONLY");
       // semantic intent: ctx_execute family must not be used for file writes —
       // expressed positively as "do not persist edits to the host filesystem"
       expect(ROUTING_BLOCK).toContain("ctx_execute");
       expect(ROUTING_BLOCK).toContain("do not persist edits");
     });
 
-    it("when_not_to_use redirects ctx_execute away from file creation", () => {
-      // Replaces the old `<forbidden_actions>` container; same semantic intent
-      // (do not pick ctx_execute for file creation) expressed via WHEN NOT.
-      expect(ROUTING_BLOCK).toContain("<when_not_to_use>");
-      expect(ROUTING_BLOCK).toContain("for file writes");
-      expect(ROUTING_BLOCK).toContain("analysis, processing, and computation only");
+    it("Boundaries section redirects ctx_execute away from file creation", () => {
+      // Successor to `<forbidden_actions>` → `<when_not_to_use>` → the trimmed
+      // "Boundaries:" section; same semantic intent (do not pick ctx_execute
+      // for file creation) — its sandbox is throwaway, edits do not persist.
+      expect(ROUTING_BLOCK).toContain("Boundaries:");
+      expect(ROUTING_BLOCK).toContain("throwaway sandbox");
     });
 
-    it("artifact_policy points artifacts at files with file-path return shape", () => {
+    it("artifact policy points artifacts at files with file-path return shape", () => {
       // Replaces the old "Write artifacts ... NEVER inline" wording.
       // The semantic intent — write artifacts to files, return only the path
       // plus a 1-line description — is asserted via the positive surface.
-      expect(ROUTING_BLOCK).toContain(
-        "Write artifacts (code, configs, PRDs) to files",
-      );
-      expect(ROUTING_BLOCK).toContain("file path + 1-line description");
+      expect(ROUTING_BLOCK).toContain("Write artifacts to files");
+      expect(ROUTING_BLOCK).toContain("return path + 1-line description");
     });
   });
 
@@ -856,7 +860,8 @@ describe("routePreToolUse", () => {
       const result = routePreToolUse("mcp__slack__list_channels", {});
       expect(result).not.toBeNull();
       expect(result!.action).toBe("context");
-      expect(result!.additionalContext).toContain("External MCP tools");
+      // Trimmed external-MCP guidance opens with "Large MCP payload ahead".
+      expect(result!.additionalContext).toContain("Large MCP payload");
     });
 
     it("emits context guidance for telegram, gdrive, and notion namespaces", () => {
@@ -889,7 +894,7 @@ describe("routePreToolUse", () => {
         // ctx_execute returns null (no security violation, no guidance).
         // The external-MCP branch must NOT have run for these.
         if (result !== null) {
-          expect(result.additionalContext ?? "").not.toContain("External MCP tools");
+          expect(result.additionalContext ?? "").not.toContain("Large MCP payload");
         }
       }
     });
@@ -980,7 +985,7 @@ describe("routePreToolUse", () => {
         const result = routePreToolUse(tool, {});
         expect(result, `expected guidance for ${tool}`).not.toBeNull();
         expect(result!.action).toBe("context");
-        expect(result!.additionalContext).toContain("External MCP tools");
+        expect(result!.additionalContext).toContain("Large MCP payload");
       }
     });
 
@@ -992,7 +997,7 @@ describe("routePreToolUse", () => {
         // Either null (passthrough) or NOT external-MCP guidance — never the
         // external-MCP branch.
         if (result !== null) {
-          expect(result.additionalContext ?? "").not.toContain("External MCP tools");
+          expect(result.additionalContext ?? "").not.toContain("Large MCP payload");
         }
       }
     });

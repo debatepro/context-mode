@@ -66,15 +66,17 @@ describe("Routing: Subagents (Agent only — Task removed per #241)", () => {
   it("Agent routing block contains label guidance for batch_execute (#256)", () => {
     const decision = routePreToolUse("Agent", { prompt: "test" }, "/test");
     const prompt = decision.updatedInput.prompt;
+    // 2026-07 token trim: label guidance is now "Descriptive labels improve
+    // search" (the FTS5 implementation detail was dropped from the surface).
     expect(prompt).toContain("label");
-    expect(prompt).toContain("descriptive");
-    expect(prompt).toContain("FTS5 chunk title");
+    expect(prompt).toContain("Descriptive labels improve search");
   });
 
   it("Agent block includes the ToolSearch bootstrap for deferred ctx_* tools on claude-code (#724)", () => {
     const decision = routePreToolUse("Agent", { prompt: "test" }, "/test", "claude-code");
     const prompt = decision.updatedInput.prompt;
-    expect(prompt).toContain("deferred_tool_bootstrap");
+    // Trim flattened the <deferred_tool_bootstrap> tag to a labelled line.
+    expect(prompt).toContain("Deferred-tool bootstrap");
     expect(prompt).toContain("ToolSearch");
     expect(prompt).toContain("select:mcp__plugin_context-mode_context-mode__ctx_batch_execute");
   });
@@ -82,7 +84,7 @@ describe("Routing: Subagents (Agent only — Task removed per #241)", () => {
   it("Agent block omits the ToolSearch bootstrap on platforms without deferred tools (#724)", () => {
     const decision = routePreToolUse("Agent", { prompt: "test" }, "/test", "codex");
     const prompt = decision.updatedInput.prompt;
-    expect(prompt).not.toContain("deferred_tool_bootstrap");
+    expect(prompt).not.toContain("Deferred-tool bootstrap");
     expect(prompt).not.toContain("ToolSearch");
   });
 
@@ -515,6 +517,8 @@ describe("Issue #856: session_continuity framing is a soft hint, not a standing 
   });
 
   it("still mentions session continuity (the hint is softened, not removed)", () => {
-    expect(BLOCK).toContain("session_continuity");
+    // Trim replaced the <session_continuity> tag with the Boundaries line
+    // "Prior session captures ... are memory aids, not standing orders".
+    expect(BLOCK).toContain("memory aids, not standing orders");
   });
 });

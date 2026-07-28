@@ -179,10 +179,13 @@ describe("createRoutingBlock", () => {
   it("produces block with platform-specific tool names for gemini-cli", () => {
     const t = createToolNamer("gemini-cli");
     const block = createRoutingBlock(t);
-    expect(block).toContain("mcp__context-mode__ctx_batch_execute");
+    // The 2026-07 token trim states the platform prefix once (with a
+    // ctx_search example) and uses shorthand names in the body, instead of
+    // repeating the full prefixed name per tool.
+    expect(block).toContain("the prefix mcp__context-mode__");
     expect(block).toContain("mcp__context-mode__ctx_search");
-    expect(block).toContain("mcp__context-mode__ctx_execute");
-    expect(block).toContain("mcp__context-mode__ctx_fetch_and_index");
+    expect(block).toContain("ctx_batch_execute");
+    expect(block).toContain("ctx_fetch_and_index");
     // Must NOT contain claude-code prefix
     expect(block).not.toContain("mcp__plugin_context-mode_context-mode__");
   });
@@ -249,8 +252,8 @@ describe("createExternalMcpGuidance (#529)", () => {
   it("mentions the routing intent so the model knows what to do", () => {
     const t = createToolNamer("claude-code");
     const guidance = createExternalMcpGuidance(t);
-    // Identifies the situation
-    expect(guidance).toContain("External MCP tools");
+    // Identifies the situation (trimmed wording: "Large MCP payload ahead")
+    expect(guidance).toContain("Large MCP payload");
     // Points to the right tools — losing any of these defeats the guidance
     expect(guidance).toMatch(/ctx_execute/);
     expect(guidance).toMatch(/ctx_fetch_and_index/);
@@ -264,8 +267,10 @@ describe("createExternalMcpGuidance (#529)", () => {
 
 describe("backward compat static exports", () => {
   it("ROUTING_BLOCK uses claude-code naming", () => {
+    // Post-trim the block states the prefix once with a ctx_search example
+    // rather than fully-prefixing every tool mention.
     expect(ROUTING_BLOCK).toContain(
-      "mcp__plugin_context-mode_context-mode__ctx_batch_execute",
+      "the prefix mcp__plugin_context-mode_context-mode__",
     );
     expect(ROUTING_BLOCK).toContain(
       "mcp__plugin_context-mode_context-mode__ctx_search",

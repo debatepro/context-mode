@@ -71,17 +71,17 @@ describe("SessionStart Hook", () => {
       ctx.includes("</context_window_protection>"),
       "Expected </context_window_protection> closing tag",
     );
+    // The 2026-07 token trim (4801B -> 2277B rendered) flattened the inner
+    // XML tags (<tool_selection_hierarchy>, <when_not_to_use>,
+    // <output_constraints>) into plain labelled sections — same semantic
+    // intent, ~half the tokens. Only the outer envelope tag remains.
     assert.ok(
-      ctx.includes("<tool_selection_hierarchy>"),
-      "Expected <tool_selection_hierarchy> tag",
+      ctx.includes("Routing:"),
+      "Expected Routing: section (replaced <tool_selection_hierarchy> in the token trim)",
     );
     assert.ok(
-      ctx.includes("<when_not_to_use>"),
-      "Expected <when_not_to_use> tag (renamed from <forbidden_actions> in ADR-0002 — affirmative framing, same semantic intent)",
-    );
-    assert.ok(
-      ctx.includes("<output_constraints>"),
-      "Expected <output_constraints> tag",
+      ctx.includes("Boundaries:"),
+      "Expected Boundaries: section (replaced <when_not_to_use>/<output_constraints> in the token trim)",
     );
     assert.ok(
       ctx.includes("batch_execute"),
@@ -95,7 +95,7 @@ describe("SessionStart Hook", () => {
     const ctx = parsed.hookSpecificOutput.additionalContext;
     assert.ok(ctx.includes("GATHER"), "Expected GATHER step");
     assert.ok(ctx.includes("FOLLOW-UP"), "Expected FOLLOW-UP step");
-    assert.ok(ctx.includes("PROCESSING"), "Expected PROCESSING step");
+    assert.ok(ctx.includes("PROCESS"), "Expected PROCESS step (renamed from PROCESSING in the token trim)");
   });
 
   test("SessionStart: routing block contains output constraints", () => {
