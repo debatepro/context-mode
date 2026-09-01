@@ -44,3 +44,6 @@ context-mode-guidance-*/
 tools/pricing/litellm-catalog.json
 /.cocoindex_code/
 /.kilo/
+
+# test-run byproducts left in repo root (f0/f1/f2.tmp, dynamic names)
+/f[0-9].tmp
