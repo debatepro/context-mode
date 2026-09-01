@@ -94,10 +94,20 @@ all routing-block exports importable. Any FAIL blocks the push.
 
 ## Token-budget watch
 
-Re-run /usage-audit after every Claude Code version bump. The 2026-07 bloat
-(27.9k total) was harness-side — system tools grew 8.7k→15.9k across two
-weeks — not user config. Baseline after trims (2026-07-22): 19.3k total
-(system tools 8.2k with disableWorkflows:true + ReportFindings denied).
+Re-run /usage-audit after every Claude Code version bump - mechanized since
+2026-09-01 by `~/.claude/hooks/version-tripwire.py` (SessionStart, fires only
+on mismatch vs `~/.claude/last-audited-version`). The measurement method lives
+in this repo: `miser-floor-diff.sh` (jq-filter variants of settings.json,
+headless floor + deltas; read its GOTCHA comments before trusting any number).
+Floors are model-, cwd-, and version-sensitive - record all three with every
+reading; $HOME is the reference cwd.
+
+History: the 2026-07 bloat (27.9k total) was harness-side, not user config;
+post-trim baseline 19.3k (2026-07-22). 2026-09-01: interactive floor on Sonnet
+39.8k stock, 26.9k under `claude-lean` (denies Artifact at 9.9k plus
+WebFetch/WebSearch/NotebookEdit/Agent/Task at 2.9k combined; wrapper
+regenerates its profile from live settings.json each launch); headless 20,661
+from $HOME. Full numbers and changelog: OpenBrain-Wiki/Miser Stack.md.
 
 ## CBM auto-index hook (2026-07-22)
 
