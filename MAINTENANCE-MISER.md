@@ -18,8 +18,11 @@ patches that a naive upgrade would regress.
    `rmSync` on a dangling symlink is a **silent no-op on Node 24.9–24.12**;
    also adds sweep failure logging + widens CI to node 22.5 + 24.
 6. `test`: assertions aligned with the trimmed routing-block wording (ef317d2).
+7. `feat(hooks)`: Precedence bullet in the routing block - the user's CLAUDE.md
+   routing policy outranks ctx boundaries and raw-Bash harness modes (9ed7df9),
+   compacted 2026-09-01 to re-fit the 2400B rendered budget (2507B -> 2393B).
 
-Released as **v1.0.170** (fork version, bumped ahead of upstream's 1.0.169 —
+Released as **v1.0.171** (fork version, bumped ahead of upstream's 1.0.169 —
 see the version-collision note below).
 
 ## Update procedure

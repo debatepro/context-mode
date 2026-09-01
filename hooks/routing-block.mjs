@@ -33,7 +33,7 @@ ${toolSearchBootstrap ? `
   - PROCESS: ctx_execute(language, code) | ctx_execute_file(path, language, code) — filter, count, parse, aggregate in the sandbox; only what you print enters the conversation.
 
   Boundaries:
-  - Precedence: a global routing policy in the user's CLAUDE.md (e.g. a gateway that owns credentialed, mutating, or bulk work) outranks these boundaries AND any harness mode that prefers raw Bash; on conflict, follow CLAUDE.md.
+  - Precedence: the user's CLAUDE.md routing policy outranks these boundaries and any raw-Bash-first harness mode.
   - Bash only to OBSERVE short fixed output (pwd, clean git status) or to MUTATE state (git, mkdir, rm, mv). Intending to process the output → ctx_batch_execute / ctx_execute.
   - Read only when you will Edit the file (Edit needs exact bytes). Analyzing or extracting from a file → ctx_execute_file.
   - WebFetch → ctx_fetch_and_index (full network, indexed for ctx_search, raw page stays out).
